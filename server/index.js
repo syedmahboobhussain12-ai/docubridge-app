@@ -91,3 +91,20 @@ app.listen(PORT, () => {
   📂 Uploads will be saved to: ${uploadDir}
   `);
 });
+const mongoose = require('mongoose');
+
+// Use the environment variable you set on Render
+const MONGODB_URI = process.env.MONGODB_URI;
+
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('✅ Success: Connected to MongoDB Atlas');
+  })
+  .catch((err) => {
+    console.error('❌ Error: Could not connect to MongoDB:', err.message);
+  });
+
+// Optional: Monitor the connection state
+const db = mongoose.connection;
+db.on('error', (err) => console.error('MongoDB connection error:', err));
+db.on('disconnected', () => console.log('MongoDB disconnected'));
