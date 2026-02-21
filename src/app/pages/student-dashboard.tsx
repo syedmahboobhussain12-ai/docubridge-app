@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // Ensure react-router-dom is used
-import { motion } from "framer-motion"; // Use framer-motion instead of motion/react
-import API from "../../api"; // Using your Axios instance to handle URLs and Tokens
+import { useNavigate } from "react-router-dom"; 
+import { motion } from "framer-motion"; 
+import API from "../../api"; 
 import {
   Upload,
   FileText,
@@ -33,7 +33,6 @@ export function StudentDashboard() {
   const [newTag, setNewTag] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
 
-  // State to hold the dynamic user data
   const [studentInfo, setStudentInfo] = useState({
     name: "Student",
     rollNo: "Loading...",
@@ -42,31 +41,30 @@ export function StudentDashboard() {
 
   // --- 1. INITIALIZE SESSION AND LOAD DOCUMENTS ---
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem("token");
     if (!token) {
       navigate("/login");
       return;
     }
 
-    // Set dynamic user data from localStorage
     const userDataStr = localStorage.getItem("user");
     if (userDataStr) {
       const user = JSON.parse(userDataStr);
       setStudentInfo({
         name: user.name,
-        rollNo: user.email.split('@')[0].toUpperCase(), // Simple fallback if you aren't storing roll numbers yet
-        mentor: "Dr. Sarah Williams" // You can make this dynamic later if you update the database
+        rollNo: user.email.split('@')[0].toUpperCase(), 
+        mentor: "Dr. Sarah Williams" 
       });
     }
 
     const fetchDocs = async () => {
       try {
-        // Using your Axios API instance, which automatically attaches the Token
         const response = await API.get("/documents");
-        setDocuments(response.data);
+        // FIX 1: Ensure it is ALWAYS an array, even if the server sends something weird
+        setDocuments(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error("Error fetching documents:", err);
+        setDocuments([]); // Fallback to prevent crash
       }
     };
     fetchDocs();
@@ -111,7 +109,6 @@ export function StudentDashboard() {
         setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 10));
       }, 100);
 
-      // Using Axios instance. Ensure your server route is /upload (not /api/upload if API baseURL already has /api)
       const response = await API.post("/upload", formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -120,11 +117,15 @@ export function StudentDashboard() {
 
       clearInterval(progressInterval);
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.status === 201) {
         setUploadProgress(100);
-        // Add the real document returned by the server
-        setDocuments((prev) => [response.data.document, ...prev]);
-
+        
+        // FIX 2: Check if the document actually exists in the response before trying to save it
+        const newDoc = response.data?.document;
+        if (newDoc) {
+          setDocuments((prev) => [newDoc, ...(Array.isArray(prev) ? prev : [])]);
+        }
+        
         setTimeout(() => {
           setIsUploading(false);
           setUploadProgress(0);
@@ -133,6 +134,7 @@ export function StudentDashboard() {
     } catch (error) {
       console.error("Error uploading file:", error);
       setIsUploading(false);
+      alert("Upload failed. Check console for details.");
     }
   };
 
@@ -179,6 +181,8 @@ export function StudentDashboard() {
             Rejected
           </span>
         );
+      default:
+        return null; // Added safety fallback
     }
   };
 
@@ -190,7 +194,6 @@ export function StudentDashboard() {
   };
 
   const handleDeleteDocument = (id: string) => {
-    // Note: For a production app, you would also want to send a DELETE request to your backend
     setDocuments(documents.filter(doc => doc.id !== id));
   };
 
@@ -331,9 +334,10 @@ export function StudentDashboard() {
           <h3 className="text-2xl mb-6 text-white font-semibold tracking-tight">Your Documents</h3>
           
           <div className="space-y-4">
-            {documents.map((doc, index) => (
+            {/* FIX 3: Added Optional Chaining (?) so if documents is ever undefined, it won't crash the browser */}
+            {documents?.map((doc, index) => (
               <motion.div
-                key={doc.id}
+                key={doc?.id || index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
@@ -373,7 +377,8 @@ export function StudentDashboard() {
                 {/* Tags Section */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <Tag className="w-4 h-4 text-[#64748b]" />
-                  {doc.tags.map((tag, tagIndex) => (
+                  {/* Optional chaining applied here too */}
+                  {doc.tags?.map((tag, tagIndex) => (
                     <span 
                       key={tagIndex}
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs bg-[#2563eb]/10 border border-[#2563eb]/20 text-[#60a5fa] font-medium"
@@ -422,7 +427,8 @@ export function StudentDashboard() {
             ))}
           </div>
 
-          {documents.length === 0 && (
+          {/* Added safety check to ensure it doesn't crash if documents is undefined */}
+          {(!documents || documents.length === 0) && (
             <div className="text-center py-16 bg-[#1e293b]/30 rounded-xl border border-[#334155]">
               <FileText className="w-16 h-16 mx-auto mb-4 opacity-10 text-[#64748b]" />
               <p className="text-lg text-[#64748b]">No documents uploaded yet</p>
