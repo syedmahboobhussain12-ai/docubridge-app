@@ -362,8 +362,14 @@ export function StudentDashboard() {
                     
                     <div className="flex items-center gap-2">
                       <button className="p-2 rounded-lg hover:bg-[#334155]/50 transition-colors text-[#94a3b8] hover:text-white">
-                        <Download className="w-5 h-5" />
-                      </button>
+                        <a 
+  href={doc.url} 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="p-2 rounded-lg hover:bg-[#334155]/50 transition-colors text-[#94a3b8] hover:text-white"
+>
+  <Download className="w-5 h-5" />
+</a>
                       <button 
                         onClick={() => handleDeleteDocument(doc.id)}
                         className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-[#94a3b8] hover:text-red-400"
