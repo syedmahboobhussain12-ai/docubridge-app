@@ -1,14 +1,32 @@
+require("dotenv").config(); // ADDED: Allows reading variables from a .env file locally
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const mongoose = require("mongoose"); // ADDED: Required to talk to MongoDB
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-// 1. Allow React (port 5173) to talk to this Server (port 5000)
+
+// 1. Allow React to talk to this Server
 app.use(cors());
 app.use(express.json());
+
+// --- MONGODB CONNECTION ---
+console.log("------------------------------------");
+console.log("SERVER BOOTING UP...");
+console.log("MONGO URI CHECK:", process.env.MONGODB_URI ? "YES (Value exists)" : "NO (Empty!)");
+console.log("------------------------------------");
+
+// Connect to MongoDB if the URI is provided
+if (process.env.MONGODB_URI) {
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log("✅ DATABASE CONNECTED"))
+    .catch(err => console.log("❌ DATABASE ERROR:", err.message));
+} else {
+  console.log("⚠️ WARNING: MONGODB_URI is missing!");
+}
 
 // 2. Ensure 'uploads' folder exists so files don't get lost
 const uploadDir = path.join(__dirname, "uploads");
@@ -22,7 +40,6 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
-    // Save as: timestamp-filename.pdf to prevent duplicates
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + "-" + file.originalname);
   },
@@ -30,8 +47,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// --- IN-MEMORY DATABASE (Resets when server restarts) ---
-// In a real app, this would be MongoDB or PostgreSQL
+// --- IN-MEMORY DATABASE (Will be replaced by MongoDB soon) ---
 let documents = []; 
 
 // --- API ENDPOINTS ---
@@ -44,32 +60,32 @@ app.post("/api/upload", upload.single("file"), (req, res) => {
 
   const newDoc = {
     id: Date.now().toString(),
-    name: req.file.originalname, // Matches StudentDashboard 'name'
-    documentName: req.file.originalname, // Matches MentorDashboard 'documentName'
+    name: req.file.originalname, 
+    documentName: req.file.originalname, 
     size: (req.file.size / (1024 * 1024)).toFixed(1) + " MB",
     uploadedAt: new Date().toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     }),
-    submittedAt: new Date().toLocaleString(), // Detailed time for Mentor view
+    submittedAt: new Date().toLocaleString(), 
     status: "pending",
     type: path.extname(req.file.originalname).toUpperCase().replace(".", ""),
     tags: [],
     path: req.file.path,
   };
 
-  documents.unshift(newDoc); // Add to top of list
+  documents.unshift(newDoc); 
   console.log(`[UPLOAD] ${newDoc.name}`);
   res.json({ message: "Upload success", document: newDoc });
 });
 
-// GET: Fetch all documents (For Mentor & Student)
+// GET: Fetch all documents
 app.get("/api/documents", (req, res) => {
   res.json(documents);
 });
 
-// PUT: Mentor updates status (Approve/Reject)
+// PUT: Mentor updates status
 app.put("/api/documents/:id/status", (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -87,24 +103,7 @@ app.put("/api/documents/:id/status", (req, res) => {
 // Start the engine
 app.listen(PORT, () => {
   console.log(`
-  🚀 Server running on http://localhost:${PORT}
+  🚀 Server running on port ${PORT}
   📂 Uploads will be saved to: ${uploadDir}
   `);
 });
-const mongoose = require('mongoose');
-
-// Use the environment variable you set on Render
-const MONGODB_URI = process.env.MONGODB_URI;
-
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('✅ Success: Connected to MongoDB Atlas');
-  })
-  .catch((err) => {
-    console.error('❌ Error: Could not connect to MongoDB:', err.message);
-  });
-
-// Optional: Monitor the connection state
-const db = mongoose.connection;
-db.on('error', (err) => console.error('MongoDB connection error:', err));
-db.on('disconnected', () => console.log('MongoDB disconnected'));
