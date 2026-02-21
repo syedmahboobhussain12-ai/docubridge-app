@@ -1,24 +1,28 @@
-import { createBrowserRouter } from "react-router";
+// Correcting paths based on your structure: src/app/pages/
 import { Login } from "./pages/login";
 import { StudentDashboard } from "./pages/student-dashboard";
 import { MentorDashboard } from "./pages/mentor-dashboard";
 import { AdminDashboard } from "./pages/admin-dashboard";
 
-export const router = createBrowserRouter([
+export const routes = [
   {
     path: "/",
-    Component: Login,
+    component: Login,
   },
   {
-    path: "/student",
-    Component: StudentDashboard,
+    path: "/login",
+    component: Login,
   },
   {
-    path: "/mentor",
-    Component: MentorDashboard,
+    path: "/student-dashboard",
+    component: StudentDashboard,
   },
   {
-    path: "/admin",
-    Component: AdminDashboard,
+    path: "/mentor-dashboard",
+    component: MentorDashboard,
   },
-]);
+  {
+    path: "/admin-dashboard",
+    component: AdminDashboard,
+  },
+];

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { motion } from "motion/react";
-import { API_BASE_URL } from "../../config";
-import { 
-  Upload, 
-  FileText, 
-  LogOut, 
-  CheckCircle2, 
-  Clock, 
+import { useNavigate } from "react-router-dom"; // Ensure react-router-dom is used
+import { motion } from "framer-motion"; // Use framer-motion instead of motion/react
+import API from "../../api"; // Using your Axios instance to handle URLs and Tokens
+import {
+  Upload,
+  FileText,
+  LogOut,
+  CheckCircle2,
+  Clock,
   XCircle,
   Download,
   Trash2,
@@ -33,28 +33,44 @@ export function StudentDashboard() {
   const [newTag, setNewTag] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
 
-  // Mock student data
-  const studentInfo = {
-    rollNo: "CS2024001",
-    name: "Alice Johnson",
-    mentor: "Dr. Sarah Williams"
-  };
+  // State to hold the dynamic user data
+  const [studentInfo, setStudentInfo] = useState({
+    name: "Student",
+    rollNo: "Loading...",
+    mentor: "Assigning..."
+  });
 
-  // --- 1. LOAD DOCUMENTS FROM SERVER ---
+  // --- 1. INITIALIZE SESSION AND LOAD DOCUMENTS ---
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    // Set dynamic user data from localStorage
+    const userDataStr = localStorage.getItem("user");
+    if (userDataStr) {
+      const user = JSON.parse(userDataStr);
+      setStudentInfo({
+        name: user.name,
+        rollNo: user.email.split('@')[0].toUpperCase(), // Simple fallback if you aren't storing roll numbers yet
+        mentor: "Dr. Sarah Williams" // You can make this dynamic later if you update the database
+      });
+    }
+
     const fetchDocs = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/documents`);
-        if (response.ok) {
-          const data = await response.json();
-          setDocuments(data);
-        }
+        // Using your Axios API instance, which automatically attaches the Token
+        const response = await API.get("/documents");
+        setDocuments(response.data);
       } catch (err) {
         console.error("Error fetching documents:", err);
       }
     };
     fetchDocs();
-  }, []);
+  }, [navigate]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -83,7 +99,7 @@ export function StudentDashboard() {
   // --- 2. REAL FILE UPLOAD LOGIC ---
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
-    
+
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -91,33 +107,28 @@ export function StudentDashboard() {
     formData.append("file", files[0]);
 
     try {
-      // Fake progress animation for UX
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 10));
       }, 100);
 
-      // Use backticks for the variable URL
-      const response = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: "POST",
-        body: formData,
+      // Using Axios instance. Ensure your server route is /upload (not /api/upload if API baseURL already has /api)
+      const response = await API.post("/upload", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
       });
 
       clearInterval(progressInterval);
 
-      if (response.ok) {
+      if (response.status === 200) {
         setUploadProgress(100);
-        const data = await response.json();
-        
         // Add the real document returned by the server
-        setDocuments((prev) => [data.document, ...prev]);
-        
+        setDocuments((prev) => [response.data.document, ...prev]);
+
         setTimeout(() => {
           setIsUploading(false);
           setUploadProgress(0);
         }, 500);
-      } else {
-        console.error("Upload failed");
-        setIsUploading(false);
       }
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -127,8 +138,8 @@ export function StudentDashboard() {
 
   const handleAddTag = (docId: string) => {
     if (newTag.trim()) {
-      setDocuments(documents.map(doc => 
-        doc.id === docId 
+      setDocuments(documents.map(doc =>
+        doc.id === docId
           ? { ...doc, tags: [...doc.tags, newTag.trim()] }
           : doc
       ));
@@ -138,8 +149,8 @@ export function StudentDashboard() {
   };
 
   const handleRemoveTag = (docId: string, tagToRemove: string) => {
-    setDocuments(documents.map(doc => 
-      doc.id === docId 
+    setDocuments(documents.map(doc =>
+      doc.id === docId
         ? { ...doc, tags: doc.tags.filter(tag => tag !== tagToRemove) }
         : doc
     ));
@@ -171,11 +182,15 @@ export function StudentDashboard() {
     }
   };
 
+  // --- 3. SECURE LOGOUT LOGIC ---
   const handleLogout = () => {
-    navigate("/");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
   };
 
   const handleDeleteDocument = (id: string) => {
+    // Note: For a production app, you would also want to send a DELETE request to your backend
     setDocuments(documents.filter(doc => doc.id !== id));
   };
 
